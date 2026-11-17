@@ -1,7 +1,7 @@
 # More than a Hack 2027 · Phase 1: Ball Possession
 
 Labels every frame of the tactical video `H` / `A` / `D` from the provided tracking (ATD) and Smart Tagging.
-It uses a 3-state Viterbi over ball control, a rule layer for stoppages, a self-supervised model for possession from team shape, and a dead-ball model trained on seven public DFL matches (other games).
+It uses a 3-state Viterbi over ball control (with live-ball evidence against stoppages), a rule layer for stoppages, a self-supervised model for possession from team shape, and a dead-ball model trained on seven public DFL matches (other games).
 No human label from the provided match is used anywhere. Read `TECHNICAL.md` for the method and its validation.
 
 ## Run
@@ -30,6 +30,7 @@ possession/
 tools/
   selfcheck.py  label-free comparison of submissions (Smart Tagging agreement, structure)
   masktest.py   hides the ball where it is tracked, checks how gaps are filled
+  dfl_ab.py     A/B test of decoder variants on the DFL matches (clean and hard conditions)
   dfl_*.py      convert the public DFL matches, build the training table, validate on them
 ```
 

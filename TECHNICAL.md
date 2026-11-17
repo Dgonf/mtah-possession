@@ -1,6 +1,6 @@
 # Frame-level ball possession from uncorrected automatic tracking
 
-*More than a Hack 2027 · Phase 1 · technical document (v3)*
+*More than a Hack 2027 · Phase 1 · technical document (v4)*
 
 ## 1. Approach in one paragraph
 
@@ -18,6 +18,10 @@ No human label from the provided match is used anywhere, for training or for val
 Why this design: the ball is missing on 41 % of graded frames, and in long blocks (median gap 10.7 s, 90th percentile 34 s). A method that only looks at the ball has to guess for half a minute at a time. The players are always tracked, and they carry both signals we need: whether play has stopped, and who is attacking.
 
 **What changed from v2, and why.** We validated v2 against real labels on other games (§6.1). Its weak point was the dead-ball decision, not the decoder weights: with a perfect dead-ball signal its spellF1 on those games rose from 0.45 to 0.70, while a grid search over 81 weight combinations moved it by 0.001. v3 therefore replaces v2's self-supervised stoppage model with the classifier of point 3. Everything else is v2.
+
+**What changed from v3 (v4), and why.** Two decoder terms, each tested on the seven DFL matches before adoption (§6.5):
+1. *Live-ball evidence against `D`.* The v3 dead-ball model reads only the players, so a slow build-up looks like a stoppage, and nothing in the decoder argued the other way while the ball was tracked in play. v4 subtracts 1 from the `D` score on every frame where the tracked ball is more than 1 m inside the pitch and moving above 2 m/s or controlled.
+2. *Down-weighted control from a team with too many players.* When one team has 12+ tracked players and the other 10 or fewer, one slot carries a player of the other team, and a control frame from that team is suspect. Its control weight drops from 1 to 0.3.
 
 ## 2. Assets
 
@@ -71,7 +75,8 @@ Per-frame scores, in units of "one frame of clear control":
 
 | evidence | weight |
 |---|---|
-| control by team *k* | +1 to *k* |
+| control by team *k* | +1 to *k* (0.3 if *k* has 12+ tracked players and the other 10 or fewer; v4) |
+| ball tracked > 1 m inside the pitch, moving > 2 m/s or controlled (v4) | −1 to `D` |
 | shape model, ball not tracked | ±0.10 · clip(logit p, 3) / 2 |
 | shape model, ball tracked | ±0.02 · … |
 | dead-ball model | +1.0 · clip(logit p, 4) to `D` |
@@ -161,6 +166,25 @@ Two caveats on this table. Smart Tagging is also an input (taker bonus, phase pr
 ### 6.4 Masked-ball test (`tools/masktest.py`)
 We hide the ball for 11 s inside windows of tracked live play, decode again, and compare with the unmasked decode. The shape-model weight 0.10 was chosen on this test in v2 (agreement 0.928, against 0.840 for "hold the last team"). The test compares the method with itself, so it supports the choice of weight, not the accuracy.
 
+### 6.5 v4 decoder terms on other games (`tools/dfl_ab.py`)
+Same protocol as §6.1 (leave-one-match-out dead-ball model, DFL spells under 3 s merged, organisers' scorer), in two conditions:
+- *clean*: the ball hidden at random in long blocks, as in §6.1;
+- *hard*: the ball hidden preferentially around duels (75 % of blocks start near a frame where both teams are within 2 m of the ball), plus synthetic team-slot errors: a player moved to an empty slot of the other team for 5–60 s, until 14 % of frames show a wrong-slot player. This is closer to the provided match (FAQ: the ball is lost "disproportionately on the interesting frames"; §9.2).
+
+| variant | spellF1 clean | Δ, wins/losses | spellF1 hard | Δ, wins/losses |
+|---|---|---|---|---|
+| v3 | 0.621 | | 0.589 | |
+| live-ball term (1.0) | 0.627 | +0.006, 7/0 | 0.595 | +0.006, 5/2 |
+| control down-weight (0.3) | 0.621 | 0, 0/0 | 0.595 | +0.006, 5/0 |
+| **v4 = both** | **0.627** | **+0.006, 7/0** | **0.601** | **+0.012, 6/1** |
+
+macroF1 rises by 0.004 (clean) and 0.005 (hard). The gains are small, under the scorer's per-match noise band, but they are consistent across matches and come with no loss elsewhere.
+
+Tested and rejected:
+- *Second decoding pass that gives the first frames after a restart to the team that controlled the ball just before it*: −0.005 clean (0/7 wins), −0.001 hard.
+- *Shape model reading the team shape 1 or 2 s later (look-ahead)*: v3 −0.005 to −0.009 clean, −0.000 to +0.003 hard, inside the noise.
+- The hard condition lowers v3 by 0.03, so §6.1's numbers are optimistic for this match.
+
 ## 7. Public window (sanity check only)
 
 | | macroF1 | spellF1 |
@@ -196,6 +220,7 @@ To rebuild that table and repeat §6.1 from the public DFL download:
 python tools/dfl_convert.py --dfl external/dfl --out external/dfl_npz
 python tools/dfl_dead_table.py --dfl external/dfl_npz
 python tools/dfl_dead_eval.py --dfl external/dfl_npz --metrics <challenge-repo>/evaluation/possession_metrics.py
+OMP_NUM_THREADS=4 python tools/dfl_ab.py --dfl external/dfl_npz --metrics <challenge-repo>/evaluation/possession_metrics.py --shifts 0   # §6.5
 ```
 
 **Tools.** Parts of the code were written with an LLM assistant. The match data stayed on our machine; the assistant worked from code, documentation and aggregate statistics printed by our scripts.
