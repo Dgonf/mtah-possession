@@ -68,7 +68,7 @@ A second, harder condition hides the ball preferentially around duels and adds s
 
 The dead-ball classifier raised spellF1 on every one of the seven matches; the two decoder terms added a small but consistent gain. A grid search over 81 decoder-weight combinations changed spellF1 by 0.001, so the weights were not tuned further. These numbers are not a forecast for the provided match: DFL tracking is much cleaner.
 
-On the provided match, without labels, the dead-ball classifier behaves as expected: it calls 46 % of graded frames dead (41–52 % in the DFL matches), separates the rule layer's certain stoppages from frames with a controlled ball with AUC 0.93, and calls the ball dead before 41 of 53 tagged set pieces (all 12 corners, all 5 free kicks). The submission reports about 237 possessions of mean 14.1 s, with 3 shorter than 1 s.
+On the provided match, without labels, the dead-ball classifier behaves as expected: it calls 46 % of graded frames dead (41–52 % in the DFL matches), separates the rule layer's certain stoppages from frames with a controlled ball with AUC 0.93, and calls the ball dead before 41 of 53 tagged set pieces (all 12 corners, all 5 free kicks). The submitted file reports 235 possessions of mean 14.2 s (organisers' `validate_submission.py`).
 
 ## 6. Limitations
 
