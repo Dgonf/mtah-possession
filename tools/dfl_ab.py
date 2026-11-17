@@ -104,7 +104,7 @@ def set_params(p):
 
 
 def one_match(job):
-    f, i, metrics, cond, shift = job
+    f, i, metrics, cond, shift, names = job
     pm = G.load_pm(metrics)
     d = np.load(f)
     g, players, team = d["graded"], d["players"], d["team"]
@@ -118,7 +118,8 @@ def one_match(job):
                          ref=g, exclude_match=i)
     gc = pm.label_codes(np.where(g, G.merge_short(d["labels"], 3.0), "X"))
     rows = []
-    for name, p in VARIANTS.items():
+    for name in names:
+        p = VARIANTS[name]
         set_params(p)
         pred = run.decode(S, use_tag_prior=False)
         r = pm.evaluate(gc, pm.label_codes(np.where(g, pred, "X")))
@@ -139,13 +140,12 @@ def main():
     ap.add_argument("--shifts", default=",".join(map(str, SHIFTS)))
     ap.add_argument("--variants", default=None, help="comma-separated subset of VARIANTS")
     a = ap.parse_args()
-    if a.variants:
-        keep = a.variants.split(",")
-        for k in list(VARIANTS):
-            if k not in keep:
-                del VARIANTS[k]
+    names = a.variants.split(",") if a.variants else list(VARIANTS)
+    unknown = set(names) - set(VARIANTS)
+    if unknown:
+        raise SystemExit(f"unknown variants: {sorted(unknown)}")
     files = sorted(glob.glob(os.path.join(a.dfl, "*.npz")))
-    jobs = [(f, i, a.metrics, c, s) for (i, f), c, s in
+    jobs = [(f, i, a.metrics, c, s, names) for (i, f), c, s in
             itertools.product(enumerate(files), a.conds.split(","), map(int, a.shifts.split(",")))]
     rows = []
     with ProcessPoolExecutor(a.jobs) as ex:

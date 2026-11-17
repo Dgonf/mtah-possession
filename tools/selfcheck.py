@@ -38,7 +38,7 @@ def segments(lab, mask):
     return out
 
 
-def check(lab, tags, gt=None):
+def check(lab, tags):
     n = len(lab); g = graded_mask(n); r = {}
     team = np.where(lab == "H", 0, np.where(lab == "A", 1, -1))
     # phase agreement
@@ -71,8 +71,6 @@ def check(lab, tags, gt=None):
     r["dead_share"] = (lab[g] == "D").mean()
     r["dead_stops"] = sum(1 for s, e, l in seg if l == "D")
     r["home_share"] = (lab[g] == "H").sum() / max((lab[g] != "D").sum(), 1)
-    if gt is not None:
-        sys.path.insert(0, "")
     return r
 
 
